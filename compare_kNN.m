@@ -9,7 +9,7 @@ Nsl = 31; % # slices in each subject's maps
 Nsubj = 10; % # subjects
 Nc = 36;
 
-doPOCS = false;
+doPOCS = true;
 POCSreg = 0.1; % regularization on POCS pseudoinverse 
 
 lambdaKern = 10^0;
