@@ -10,8 +10,8 @@ Nsubj = 5;
 mode = 'all'; % 'CP','all'
 maps.b1 = [];
 maps.mask = [];
-maps.R = {};
-for subjI = 10%:length(subj)*Nsubj
+%for 
+subjI = 10%:length(subj)*Nsubj
     % these cases model a 3-row x 12 element array, arranged
     % circumferentially in B1p_out, starting with the bottom row and
     % moving up. The CP mode is obtained by multiplying each B1 map
@@ -62,7 +62,7 @@ for subjI = 10%:length(subj)*Nsubj
     % scale it up 5x since the max local can be e.g. 20 W/kg but the max ave can only be 4 W/kg
     Sv(:,:,end) = 5*Sv(:,:,end);
     maps.Sv = Sv;
-end
+%end
 
 orientation = 'axial'; % 'axial', 'sagittal', 'coronal'
 switch orientation
@@ -116,7 +116,6 @@ for ii = 1:size(maps.b1,3) % loop over slices
     mapsSlice.b1 = squeeze(maps.b1(:,:,ii,:));
     mapsSlice.mask = maps.mask(:,:,ii);
     mapsSlice.deltax = maps.deltax;
-    mapsSlice.R = maps.R;
     mapsSlice.Sv = maps.Sv;
     [rf(:,:,ii),cost(ii),m(:,:,ii)] = spiral(mapsSlice,algp);
 end

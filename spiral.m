@@ -78,7 +78,7 @@ d = ift2((hamming(dim(1))*hamming(dim(2))').^2.*ft2(d));
 % and compressed arrays
 
 disp 'Building SAR reg matrix'
-R = sqrt(algp.beta*sum(mask(:))/size(maps.Sv,3))*buildSARReg(maps.Sv,Nt);
+R = sqrt(algp.beta*sum(mask(:))/size(maps.Sv,3))*buildSARReg(sum(maps.Sv,3),Nt);
 %R = sqrt(roughbeta)*spdiags([-ones(Nt,1) ones(Nt,1)],[0 1],Nt,Nt) + ...
 %    sqrt(roughbeta)*speye(Nt);
 %Rfull = kron(speye(Nc),R);
