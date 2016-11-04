@@ -111,5 +111,3 @@ parfor slIdx = 1:Nsl
     
     
 end
-
-

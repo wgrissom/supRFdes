@@ -65,47 +65,82 @@ d = circshift(d,[xmi ymi]);
 % smooth it a bit
 d = ift2((hamming(dim(1))*hamming(dim(2))').^2.*ft2(d));
 
-%if strcmp(algp.dPatternSelect,'unif')
-    d = d.*exp(1i*angle(sum(b1,3)));
-%end
+% Set target phase equal to phase of B1 sum
+d = d.*exp(1i*angle(sum(b1,3)));
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Set up system matrix and penalty matrix
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% Build RF waveform roughness penalty matrix for full
-% and compressed arrays
-
-disp 'Building SAR reg matrix'
-R = sqrt(algp.beta*sum(mask(:))/size(maps.Sv,3))*buildSARReg(sum(maps.Sv,3),Nt);
-%R = sqrt(roughbeta)*spdiags([-ones(Nt,1) ones(Nt,1)],[0 1],Nt,Nt) + ...
-%    sqrt(roughbeta)*speye(Nt);
-%Rfull = kron(speye(Nc),R);
+%% Set up system matrix and penalty matrix
 
 % columnize and mask the b1 maps
 b1 = permute(b1,[3 1 2]);b1 = b1(:,:).';
 b1 = b1(mask,:);
 
-% Build system matrix
+%% Build system matrix
 A = Gmri_SENSE(k,mask,'fov',maps.deltax*dimb1,'sens',conj(b1))';
 
-disp 'Starting CG'
-ncgiters = floor(length(k)/8);       % # CG Iterations per RF update
-rf = qpwls_pcg(zeros(length(k)*Nc,1),A,1,d(mask),0,R,1,ncgiters,mask); % CG
-rf = reshape(rf(:,end),[length(k) Nc]); % qpwls_pcg returns all iterates
+%% Solve
+if ~isfield(algp,'SARlimits')
+    
+    disp 'Building SAR reg matrix'
+    R = sqrt(algp.beta*sum(mask(:))/size(maps.Sv,3))*buildSARReg(sum(maps.Sv,3),Nt);
+    %R = sqrt(roughbeta)*spdiags([-ones(Nt,1) ones(Nt,1)],[0 1],Nt,Nt) + ...
+    %    sqrt(roughbeta)*speye(Nt);
+    %Rfull = kron(speye(Nc),R);
+    
+    disp 'Starting CG'
+    ncgiters = floor(length(k)/8);       % # CG Iterations per RF update
+    rf = qpwls_pcg(zeros(length(k)*Nc,1),A,1,d(mask),0,R,1,ncgiters,mask); % CG
+    rf = reshape(rf(:,end),[length(k) Nc]); % qpwls_pcg returns all iterates
+    
+    % calculate excitation pattern
+    m = zeros(dim);m(mask) = A*rf(:);
+    
+    mse = norm(mask.*(m-d))^2;
+    sar = norm(R*rf(:))^2;
+    cost = mse + sar;
+    fprintf('Final MSE: %0.2f%. SAR: %f.\n',mse,sar);
 
-% calculate excitation pattern
-m = zeros(dim);m(mask) = A*rf(:);
+else %% problem is SAR-constrained; use fmincon
+    keyboard
 
-mse = norm(mask.*(m-d))^2;
-sar = norm(R*rf(:))^2;
-cost = mse + sar;
-fprintf('Final MSE: %0.2f%. SAR: %f.\n',mse,sar);
+    % 2016b syntax
+    %options = optimoptions(@fmincon,'Algorithm','interior-point',...
+    %    'SpecifyObjectiveGradient',true,'SpecifyConstraintGradient',true);
+    % 2015a syntax  
+    R = 0; % no regularization here; could add roughness or integrated power later
+    HessFcn = @(x,lambda,v)HessMultFcn(x,lambda,v,A,R,maps.Sv);
+    options = optimoptions(@fmincon,'Algorithm','interior-point',...
+        'GradConstr','on','GradObj','on','Hessian','user-supplied',...
+        'SubproblemAlgorithm','cg','HessMult',HessFcn,'Display','iter-detailed');
+    
+    fun = @(x)quadobj(x,A,d(mask),R);
+    nonlconstr = @(x)quadconstr(x,maps.Sv,algp.SARlimits*algp.SARTR/dt);
+    x0 = zeros(2*Nt*Nc,1); % column vector
+    [x,fval,eflag,output,lambda] = fmincon(fun,x0,...
+        [],[],[],[],[],[],nonlconstr,options);
+    
+    rf = reshape(x,[length(k) Nc]); 
+    
+    % calculate excitation pattern
+    m = zeros(dim);m(mask) = A*rf(:);
+    
+    mse = norm(mask.*(m-d))^2;cost = mse;
+    maxSAR = 0;
+    for ii = 1:size(maps.Sv,3)
+        SARtmp = 0;
+        for jj = 1:Nt
+            SARtmp = SARtmp + real(conj(rf(jj,:))*(maps.Sv(:,:,ii)*rf(jj,:).'));
+        end
+        if SARtmp > maxSAR
+            maxSAR = SARtmp;
+        end
+    end
+    fprintf('Final MSE: %0.2f%. Max SAR: %f.\n',mse,maxSAR);
+    
+end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Display final results
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Display final results
 
 if genfigs
     maxamp = max(abs([d(:);m(:)]));
@@ -120,3 +155,78 @@ if genfigs
     imagesc(abs(m-d));axis image;colorbar
     title(sprintf('Cost = %0.2f%%',cost));
 end
+
+%% Helper functions
+function [y,grady] = quadobj(x,A,d,R)
+
+x = x(1:length(x)/2)+1i*x(length(x)/2+1:end);
+Ax = A*x;
+res = Ax - d;
+Rx = R*x;
+y = 1/2*real(res'*res) + 1/2*real(Rx'*Rx);
+if nargout > 1
+    grady = A'*res + R'*Rx;
+    grady = [real(grady);imag(grady)];
+end
+
+function [y,yeq,grady,gradyeq] = quadconstr(x,Sv,SARlimits)
+
+x = x(1:length(x)/2)+1i*x(length(x)/2+1:end); % restore complex
+[Nc,~,Nvop] = size(Sv);
+Nt = length(x)/Nc;
+x = reshape(x,[Nt Nc]).'; % reshape to Nt x Nc; transpose to get Nc x Nt
+
+% precompute Sv*x
+Svx = zeros([Nc Nt Nvop]);
+for ii = 1:Nvop % loop over constraints
+    Svx(:,:,ii) = Sv(:,:,ii)*x;
+end
+
+y = zeros(1,Nvop);
+for ii = 1:Nvop % loop over constraints
+    for jj = 1:Nt % sum over time; duty cycle is absorbed in SARlimits
+        y(ii) = y(ii) + x(:,jj)'*Svx(:,jj,ii);
+    end
+    y(ii) = real(y(ii)) - SARlimits(ii);
+end
+yeq = []; % no equality constraints
+    
+% should be able to reduce computation by calculating grady first and 
+% using that to get y!
+if nargout > 2
+    % collapse time and coil dims; stack real and imaginary
+    grady = permute(2*Svx,[3 2 1]); % Nvop x Nt x Nc
+    grady = grady(:,:).'; grady = [real(grady);imag(grady)];
+end
+gradyeq = []; % no equality constraint derivatives
+
+function W = HessMultFcn(x,lambda,v,A,R,Sv)
+
+x = v(1:length(x)/2)+1i*v(length(x)/2+1:end); % restore complex
+[Nc,~,Nvop] = size(Sv);
+Nt = length(x)/Nc;
+
+if max(abs(x)) > 0
+    
+    % objective second derivatives
+    W = A'*(A*x) + R'*(R*x);
+    
+    % constraint second derivatives
+    x = reshape(x,[Nt Nc]).'; % reshape to Nc x Nt
+    grady = zeros([Nc Nt]);
+    for ii = 1:Nvop % loop over constraints
+        grady = grady + lambda.ineqnonlin(ii)*2*(Sv(:,:,ii)*x);
+    end
+    W = W + col(grady.');W = [real(W);imag(W)];
+
+else    
+    W = zeros(size(v));
+end
+
+
+function out = col(in)
+
+out = in(:);
+
+
+

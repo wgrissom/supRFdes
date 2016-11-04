@@ -5,6 +5,7 @@ Nc = 36;
 subj = {'Duke','Ella'};
 b1Path = '../';
 Nsubj = 5;
+constrainSAR = true;
 
 %b1case = 'v1_36chv3'; %'headb1';
 mode = 'all'; % 'CP','all'
@@ -97,8 +98,6 @@ end
 maps.b1 = maps.b1./median(abs(maps.b1(repmat(maps.mask,[1 1 1 Nc]))));
 
 algp.beta = 10^0;
-%algp.tol = 1-0.999;
-algp.tol = 0.99999;
 algp.dt = 4e-6; % dwell time, seconds
 algp.spres = 0.5; % spiral traj resolution, cm
 algp.spfov = 5; % spiral traj fov, cm
@@ -110,6 +109,11 @@ algp.gmax = 4; % g/cm, max gradient
 algp.dgdtmax = 8000; % g/cm/sec, max gradient slew
 algp.genfigs = false; % generate figures
 maps.deltax = 0.5; % cm, res in each dim
+if constrainSAR 
+    maps.Sv = eye(Nc);%maps.Sv(:,:,1);
+    algp.SARlimits = 20*ones(size(maps.Sv,3),1); % W/kg
+    algp.SARTR = 0.1; % seconds, TR
+end
 
 addpath spiral/
 for ii = 1:size(maps.b1,3) % loop over slices

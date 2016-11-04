@@ -68,8 +68,19 @@ if ~exist('mapsTrain','var')
         Sv(:,:,end) = Sv(:,:,end)/sum(nSv);
         % scale it up 5x since the max local can be e.g. 20 W/kg but the max ave can only be 4 W/kg
         Sv(:,:,end) = 5*Sv(:,:,end);
-        R = {}; R{1} = buildSARReg(Sv,1);
+        R = {}; R{1} = buildSARReg(sum(Sv,3),1);
         mapsTrain.R = cat(1,mapsTrain.R,R(ones(1,size(B1p_out,3)))); % stick these matrices on the end 
+%         Rfoo = buildSARReg(sum(Sv,3),1);
+%         CtCfoo2 = Rfoo'*Rfoo;
+%         CtCfoo = R{1}'*R{1};
+%         xfoo = randn(Nc,100)+1i*randn(Nc,100);
+%         for ii = 1:100
+%             foo1 = xfoo(:,ii)'*(CtCfoo*xfoo(:,ii));
+%             foo2 = xfoo(:,ii)'*(Rfoo'*(Rfoo*xfoo(:,ii)));
+%             foo3 = xfoo(:,ii)'*(CtCfoo2*xfoo(:,ii));
+%             norm(foo1-foo2)
+%             norm(foo1-foo3)
+%         end
     end
     
     [dimxy(1),dimxy(2),Nsl,Nc] = size(mapsTrain.b1); % number of physical coils (Ncoils)

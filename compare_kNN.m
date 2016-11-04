@@ -94,6 +94,7 @@ for kk = 1:K % loop over the K folds
     
     
     % get the patterns of the direct design solutions
+    disp 'Calculating direct design solutions, as baseline'
     for ii = 1:nTest
         
         subjInd = floor(testInds(ii)/Nsl)+1;
@@ -163,8 +164,6 @@ for kk = 1:K % loop over the K folds
         ./repmat(featStd,[1 nTrain]);
     trainFeaturesNorm(isinf(trainFeaturesNorm) | isnan(trainFeaturesNorm)) = 0; % get divide by zero for some coordinates
     % get normalized test features
-    %featMean = mean(testFeatures,2);
-    %featStd = std(testFeatures,0,2);
     testFeaturesNorm = (testFeatures-repmat(featMean,[1 nTest]))...
         ./repmat(featStd,[1 nTest]);
     testFeaturesNorm(isinf(testFeaturesNorm) | isnan(testFeaturesNorm)) = 0; % get divide by zero for some coordinates

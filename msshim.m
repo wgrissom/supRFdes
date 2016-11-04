@@ -61,7 +61,7 @@ for subjI = 10%:length(subj)*Nsubj
     Sv(:,:,end) = Sv(:,:,end)/sum(nSv);
     % scale it up 5x since the max local can be e.g. 20 W/kg but the max ave can only be 4 W/kg
     Sv(:,:,end) = 5*Sv(:,:,end);
-    R = {}; R{1} = buildSARReg(Sv,1);
+    R = {}; R{1} = buildSARReg(sum(Sv,3),1);
     maps.R = cat(1,maps.R,R(ones(1,size(B1p_out,3)))); % stick these matrices on the end
 end
 

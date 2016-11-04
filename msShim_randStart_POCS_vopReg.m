@@ -90,6 +90,8 @@ for raIdx = 1:nRandStart
                 % take a couple CG iterations
                 xS = qpwls_pcg(rf(:,raIdx,slIdx),A{slIdx},1,...
                     exp(1i*dphs{slIdx}),0,sqrt(beta)*maps.R{slIdx},1,algp.ncgiters,ones(Nc,1));
+                %xS = qpwls_pcg_ctc(rf(:,raIdx,slIdx),A{slIdx},1,...
+                %    exp(1i*dphs{slIdx}),0,beta*(maps.R{slIdx}'*maps.R{slIdx}),1,algp.ncgiters,ones(Nc,1));
                 rf(:,raIdx,slIdx) = xS(:,end);
             end
         end
@@ -105,8 +107,8 @@ for raIdx = 1:nRandStart
         end
         %compWts = u(:,1:algp.Nccomp);
         
-        % project shims onto space of predictable shims
-        if isfield(algp,'Fproj');
+        % project shims onto space of predictable shims, if using CG
+        if isfield(algp,'Fproj') && ~algp.noCG
             % all-together
 %             tmp = sqz(rf(:,raIdx,:));
 %             tmp = col([real(tmp);imag(tmp)]);
@@ -114,16 +116,15 @@ for raIdx = 1:nRandStart
 %             tmp = reshape(tmp,[2*Nc Nsl]);
 %             rf(:,raIdx,:) = tmp(1:Nc,:) + 1i*tmp(Nc+1:end,:);
             % coordinate-wise
+            %keyboard
+            %tmp = algp.Fproj*sqz(rf(:,raIdx,:)).';
+            %rf(:,raIdx,:) = permute(tmp,[2 3 1]);
             for ii = 1:Nc
-                % collect real and imag parts of each slice's shim for this
-                % coil
-                rfr = real(sqz(rf(ii,raIdx,:)));
-                rfi = imag(sqz(rf(ii,raIdx,:)));
-                % project each of them
-                rfr = algp.Fproj*rfr;
-                rfi = algp.Fproj*rfi;
-                % put them back into the pulse array
-                rf(ii,raIdx,:) = rfr+1i*rfi;
+                % project real and imag parts of each slice's shim for this
+                % coil onto the space of predictable shims, assuming that 
+                % the prediction weights are given by fitting the
+                % features to this training data across slices
+                rf(ii,raIdx,:) = algp.Fproj*sqz(rf(ii,raIdx,:));
             end
         end
         
