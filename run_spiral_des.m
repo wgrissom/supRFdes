@@ -5,7 +5,7 @@ Nc = 36;
 subj = {'Duke','Ella'};
 b1Path = '../';
 Nsubj = 5;
-constrainSAR = true;
+constrainSAR = false; % SAR-constrained design (DOESN'T WORK YET)
 
 %b1case = 'v1_36chv3'; %'headb1';
 mode = 'all'; % 'CP','all'
@@ -116,34 +116,13 @@ if constrainSAR
 end
 
 addpath spiral/
-for ii = 1:size(maps.b1,3) % loop over slices
+for ii = 1:Nsl % loop over slices
+  fprintf('Designing pulse for slice %d\n',ii);
     mapsSlice.b1 = squeeze(maps.b1(:,:,ii,:));
     mapsSlice.mask = maps.mask(:,:,ii);
     mapsSlice.deltax = maps.deltax;
     mapsSlice.Sv = maps.Sv;
-    [rf(:,:,ii),cost(ii),m(:,:,ii)] = spiral(mapsSlice,algp);
+    [rf(:,:,ii),mse(ii),sar(ii),m(:,:,ii)] = spiral(mapsSlice,algp);
 end
 
-% calculate percent deviation from unit amplitude
-for ii = 1:Nsl
-    for jj = 1:algp.nRandStart + 2
-        tmp = mAll(:,:,jj,ii);
-        percErr(jj,ii) = 100*sqrt(mean(abs(abs(tmp(maps.mask(:,:,ii)))-1).^2));
-    end
-end
-
-% for each rf solution, normalize to first coil
-rfNorm = rf./repmat(rf(1,:,:),[Nc 1 1]);
-
-% examine "valid" solutions more closely
-threshPerc = 5; % percent error threshold
-
-% examine "best" rf pulses for each slice,
-% to see how similar they are over slices
-[~,inds] = min(percErr,[],1);
-for ii = 1:Nsl
-    rfBest(:,ii) = rfNorm(:,inds(ii),ii);
-    mBest(:,:,ii) = mAll(:,:,inds(ii),ii);
-end
-
-save(['subj' num2str(subjI) '_shims_' orientation]);
+save(['subj' num2str(subjI) '_spiral_' orientation]);

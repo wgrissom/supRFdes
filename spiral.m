@@ -1,4 +1,4 @@
-function [rf,cost,m] = spiral(maps,algp)
+function [rf,mse,sar,m] = spiral(maps,algp)
 
 addpath util/
 
@@ -98,10 +98,9 @@ if ~isfield(algp,'SARlimits')
     mse = norm(mask.*(m-d))^2;
     sar = norm(R*rf(:))^2;
     cost = mse + sar;
-    fprintf('Final MSE: %0.2f%. SAR: %f.\n',mse,sar);
+    fprintf('Final MSE: %0.2f. SAR: %0.2f.\n',mse,sar);
 
 else %% problem is SAR-constrained; use fmincon
-    keyboard
 
     % 2016b syntax
     %options = optimoptions(@fmincon,'Algorithm','interior-point',...
