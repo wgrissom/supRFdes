@@ -22,7 +22,7 @@ phsRotate = false;
 
 if getNewInds
     kfoldInds = crossvalind('Kfold',Nsl*Nsubj,K);
-    save ../kfoldInds kfoldInds
+    %save ../kfoldInds kfoldInds
 else
     load ../kfoldInds
 end
@@ -140,6 +140,7 @@ for kk = 1:K % loop over the K folds
     
     % run the POCS-shim design
     % first get all the maps for the design into one array
+    disp 'Building training data structure'
     mapsTrain.b1 = [];
     mapsTrain.mask = [];
     mapsTrain.R = {};

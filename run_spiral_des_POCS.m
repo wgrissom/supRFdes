@@ -7,13 +7,14 @@ b1Path = '../';
 Nsubj = 5;
 constrainSAR = false; % SAR-constrained design (DOESN'T WORK YET)
 
+
 %b1case = 'v1_36chv3'; %'headb1';
 mode = 'all'; % 'CP','all'
 maps.b1 = [];
 maps.mask = [];
 maps.Sv = [];
 %for 
-subjI = 10%:length(subj)*Nsubj
+subjI = 1%:length(subj)*Nsubj
     % these cases model a 3-row x 12 element array, arranged
     % circumferentially in B1p_out, starting with the bottom row and
     % moving up. The CP mode is obtained by multiplying each B1 map
@@ -110,12 +111,15 @@ algp.gmax = 4; % g/cm, max gradient
 algp.dgdtmax = 8000; % g/cm/sec, max gradient slew
 algp.genfigs = false; % generate figures
 maps.deltax = 0.5; % cm, res in each dim
-if constrainSAR 
-    maps.Sv = eye(Nc);%maps.Sv(:,:,1);
-    algp.SARlimits = 20*ones(size(maps.Sv,3),1); % W/kg
-    algp.SARTR = 0.1; % seconds, TR
+algp.ncgiters = 3;       % # CG Iterations per RF update
+algp.maxIters = 1000; % max POCS iters
+algp.tol = 1-0.999; % stopping parameter
+if exist('Fproj','var') 
+    algp.Fproj = Fproj; % projector onto space of predictable solutions
+else
+    algp.Fproj = eye(size(maps.b1,3));
 end
 
-[rf,mse,sar,m] = spiral(maps,algp);
+[rf,mse,sar,m] = spiral_POCS(maps,algp);
 
 save(['subj' num2str(subjI) '_spiral_' orientation]);
