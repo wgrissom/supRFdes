@@ -117,7 +117,7 @@ algp.tol = 1-0.999; % stopping parameter
 if exist('Fproj','var') 
     algp.Fproj = Fproj; % projector onto space of predictable solutions
 else
-    algp.Fproj = eye(size(maps.b1,3));
+    algp.Fproj = eye(size(maps.b1,3)); % for testing
 end
 
 [rf,mse,sar,m] = spiral_POCS(maps,algp);
